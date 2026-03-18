@@ -1,18 +1,18 @@
 export default async function handler(req, res) {
   try {
-    // Handle GET (browser test)
+    // ✅ Allow browser testing
     if (req.method === "GET") {
       return res.status(200).json({ message: "API is working ✅" });
     }
 
-    // Only allow POST
+    // ✅ Only POST allowed
     if (req.method !== "POST") {
       return res.status(405).json({ message: "Only POST allowed" });
     }
 
     const data = req.body || {};
 
-    // Safe extraction (prevents crashes)
+    // 🔍 Extract headers safely
     const userAgent = req.headers?.["user-agent"] || "unknown";
     const referer = req.headers?.["referer"] || "";
     const ip =
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       req.socket?.remoteAddress ||
       "unknown";
 
-    // Safe URL parsing
+    // 🔍 Extract UTM params
     let utm = {};
     try {
       if (referer) {
@@ -35,22 +35,54 @@ export default async function handler(req, res) {
       utm = {};
     }
 
-    // Safe array cleaner
-    const cleanArray = (value) => {
-      if (!value) return [];
-      if (Array.isArray(value)) return value;
-      if (typeof value === "string") return value.split(",");
-      return [];
-    };
+    // 🧠 Email type detection
+    const email = data.email || "";
+    const email_type =
+      email.includes("gmail.com") ||
+      email.includes("yahoo.com") ||
+      email.includes("hotmail.com")
+        ? "personal"
+        : "business";
 
+    // 🧠 Lead Scoring (based on your current form)
+    let score = 0;
+
+    if (email_type === "business") score += 20;
+    if (data.company_name) score += 10;
+    if (data.job_title) score += 5;
+
+    if (data.service_required === "certification") score += 30;
+    if (data.service_required === "testing") score += 20;
+
+    if (data.inquiry && data.inquiry.length > 30) score += 10;
+
+    // Priority
+    let priority = "low";
+    if (score >= 50) priority = "high";
+    else if (score >= 30) priority = "medium";
+
+    // 📦 Final Payload
     const payload = {
-      ...data,
-      target_market: cleanArray(data.target_market),
-      standards: cleanArray(data.standards),
+      full_name: data.full_name || "",
+      email: email.toLowerCase(),
+      phone: data.phone || "",
+      company_name: data.company_name || "",
+      job_title: data.job_title || "",
+      country: data.country || "",
+      service_required: data.service_required || "",
+      inquiry: data.inquiry || "",
+
+      // intelligence
+      email_type,
+      lead_score: score,
+      priority,
+
+      // tracking
       user_agent: userAgent,
       ip_address: ip,
-      source_page: referer,
+      source_page: data.page || referer || "unknown",
       ...utm,
+
       created_at: new Date().toISOString(),
     };
 
