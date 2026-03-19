@@ -83,24 +83,24 @@ module.exports = async function handler(req, res) {
 
     // 🔥 Send to Supabase (REST API)
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/leads`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: process.env.SUPABASE_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    apikey: process.env.SUPABASE_KEY,
+    Authorization: `Bearer ${process.env.SUPABASE_KEY}`,
+    Prefer: "return=minimal", // keep this
+  },
+  body: JSON.stringify(payload),
+});
 
-    const result = await response.json();
-    console.log("SUPABASE RESPONSE:", result);
+// ✅ READ BODY ONLY ONCE
+const text = await response.text();
 
-   if (!response.ok) {
-  const errorText = await response.text();
-  console.error("❌ Supabase error:", errorText);
-  } else {
+if (!response.ok) {
+  console.error("❌ Supabase error:", text);
+} else {
   console.log("✅ Insert successful");
-  }
+}
 
     return res.status(200).json({ success: true });
   } catch (error) {
