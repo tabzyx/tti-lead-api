@@ -95,9 +95,12 @@ module.exports = async function handler(req, res) {
     const result = await response.json();
     console.log("SUPABASE RESPONSE:", result);
 
-    if (!response.ok) {
-      console.error("Supabase error:", result);
-    }
+   if (!response.ok) {
+  const errorText = await response.text();
+  console.error("❌ Supabase error:", errorText);
+  } else {
+  console.log("✅ Insert successful");
+  }
 
     return res.status(200).json({ success: true });
   } catch (error) {
