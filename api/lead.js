@@ -88,7 +88,6 @@ module.exports = async function handler(req, res) {
         "Content-Type": "application/json",
         apikey: process.env.SUPABASE_KEY,
         Authorization: `Bearer ${process.env.SUPABASE_KEY}`,
-        Prefer: "return=minimal"   // 🔥 IMPORTANT
       },
       body: JSON.stringify(payload),
     });
