@@ -1,8 +1,16 @@
 module.exports = async function handler(req, res) {
   try {
-    if (req.method === "GET") {
-      return res.status(200).json({ message: "API is working perfectly ✅" });
-    }
+   if (req.method === "GET") {
+  console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
+  console.log(
+    "SUPABASE_KEY:",
+    process.env.SUPABASE_KEY ? "EXISTS" : "MISSING"
+  );
+
+  return res.status(200).json({
+    message: "API is working ✅",
+  });
+}
 
     if (req.method !== "POST") {
       return res.status(405).json({ message: "Only POST allowed" });
