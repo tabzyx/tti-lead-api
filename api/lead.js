@@ -75,6 +75,7 @@ export default async function handler(req, res) {
 
     // 🔥 Send to Supabase (REST API)
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/leads`, {
+      console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
       method: "POST",
       headers: {
         "Content-Type": "application/json",
