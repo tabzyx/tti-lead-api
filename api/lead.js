@@ -93,6 +93,7 @@ module.exports = async function handler(req, res) {
     });
 
     const result = await response.json();
+    console.log("SUPABASE RESPONSE:", result);
 
     if (!response.ok) {
       console.error("Supabase error:", result);
