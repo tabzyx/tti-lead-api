@@ -101,8 +101,56 @@ if (!response.ok) {
 } else {
   console.log("✅ Insert successful");
 }
+    // 🔐 Authenticate with Odoo
+const authRes = await fetch(`${process.env.ODOO_URL}/web/session/authenticate`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    params: {
+      db: process.env.ODOO_DB,
+      login: process.env.ODOO_USERNAME,
+      password: process.env.ODOO_API_KEY,
+    },
+  }),
+});
 
-    return res.status(200).json({ success: true });
+const authData = await authRes.json();
+const uid = authData?.result?.uid;
+
+if (!uid) {
+  console.error("❌ Odoo auth failed", authData);
+} else {
+  console.log("✅ Odoo authenticated");
+
+  // 🚀 Create Lead in CRM
+  const leadRes = await fetch(`${process.env.ODOO_URL}/web/dataset/call_kw`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      params: {
+        model: "crm.lead",
+        method: "create",
+        args: [
+          {
+            name: `${data.service_required} Inquiry`,
+            contact_name: data.full_name,
+            email_from: data.email,
+            phone: data.phone,
+            description: data.inquiry,
+          },
+        ],
+        kwargs: {},
+      },
+    }),
+  });
+
+  const leadData = await leadRes.json();
+  console.log("📈 Odoo Lead Created:", leadData);
+}
+
+ return res.status(200).json({ success: true });
   } catch (error) {
     console.error("ERROR:", error);
     return res.status(500).json({ error: "Internal Server Error" });
