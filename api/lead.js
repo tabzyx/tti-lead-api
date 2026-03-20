@@ -138,6 +138,7 @@ if (!uid) {
   },
     body: JSON.stringify({
       jsonrpc: "2.0",
+      id: Date.now(), // or any unique number
       params: {
         model: "crm.lead",
         method: "create",
