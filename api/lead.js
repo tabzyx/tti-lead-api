@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
       phone: data.phone || "",
       company_name: data.company_name || "",
       job_title: data.job_title || "",
-      country: data.country || "",
+      country: data.Locale || "",
       service_required: data.service_required || "",
       inquiry: data.inquiry || "",
 
