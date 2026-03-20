@@ -112,7 +112,7 @@ const authRes = await fetch(`${process.env.ODOO_URL}/web/session/authenticate`, 
     params: {
       db: process.env.ODOO_DB,
       login: process.env.ODOO_USERNAME,
-      password: process.env.ODOO_API_KEY,
+      password: process.env.ODOO_DB_PASSWORD,
     },
   }),
 });
