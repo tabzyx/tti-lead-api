@@ -118,6 +118,10 @@ const authRes = await fetch(`${process.env.ODOO_URL}/web/session/authenticate`, 
 });
 
 const authData = await authRes.json();
+
+    // 🔥 IMPORTANT: extract cookies
+const cookies = authRes.headers.get("set-cookie");
+    
 const uid = authData?.result?.uid;
 
 if (!uid) {
@@ -128,7 +132,10 @@ if (!uid) {
   // 🚀 Create Lead in CRM
   const leadRes = await fetch(`${process.env.ODOO_URL}/web/dataset/call_kw`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+      headers: {
+    "Content-Type": "application/json",
+    Cookie: cookies, // 🔥 THIS FIXES EVERYTHING
+  },
     body: JSON.stringify({
       jsonrpc: "2.0",
       params: {
