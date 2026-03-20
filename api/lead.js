@@ -18,6 +18,8 @@ module.exports = async function handler(req, res) {
 
     const data = req.body || {};
 
+    console.log(data);
+
     const userAgent = req.headers?.["user-agent"] || "unknown";
     const referer = req.headers?.["referer"] || "";
     const ip =
