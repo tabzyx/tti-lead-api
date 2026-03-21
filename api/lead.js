@@ -241,6 +241,7 @@ const cookies = authRes.headers.get("set-cookie");
     cookies,
     {
       jsonrpc: "2.0",
+      id: Date.now(), // or any unique number
       params: {
         model: "res.partner",
         method: "create",
@@ -328,16 +329,22 @@ const userId = getSalespersonId(data.service_required);
   email_from: data.email,
   phone: data.phone,
 
-  description: `
-Service: ${data.service_required}
-Company: ${data.company_name}
-Name: ${data.full_name}
-
-Message:
-${data.inquiry}
-
-Source Page: ${data.page}
-  `,
+  description: [
+  `Service: ${data.service_required}`,
+  `Company: ${data.company_name}`,
+  `Name: ${data.full_name}`,
+  `Email: ${data.email}`,
+  `Phone: ${data.phone}`,
+  ``,
+  `Message:`,
+  data.inquiry,
+  ``,
+  `Source Page: ${
+    PAGE_TAG_MAP[data.page?.toLowerCase()] || data.page
+  }`,
+]
+  .filter(Boolean)
+  .join("\n"),
   priority: priority === "high" ? "3" : priority === "medium" ? "2" : "1",
   user_id: userId,
   tag_ids: tagIds.length ? [[6, 0, tagIds]] : [],
