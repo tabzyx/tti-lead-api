@@ -253,7 +253,6 @@ const userId = getSalespersonId(data.service_required);
         method: "create",
         args: [
           {
-            {
   name: `${data.service_required} Inquiry – ${data.full_name} (${data.company_name})`,
   contact_name: data.full_name,
   partner_id: partnerId,
