@@ -1,3 +1,18 @@
+const PAGE_TAG_MAP = {
+  "textiles-apparel": "Textiles & Apparel",
+  "leather-footwear": "Leather & Footwear",
+  "petroleum": "Petroleum",
+  "food-agri": "Food & Agri",
+  "ppe": "PPE",
+  "chemicals": "Chemicals",
+  "pharma": "Pharma",
+  "testing": "Testing",
+  "inspection": "Inspection",
+  "certification": "Certification",
+  "sustainability": "Sustainability",
+  "contact": "Contact",
+};
+
 async function odooCall(url, cookies, payload) {
   const res = await fetch(url, {
     method: "POST",
@@ -229,14 +244,38 @@ if (!uid) {
 } else {
   console.log("✅ Odoo authenticated");
 
-  const tagIds = [];
+const rawTags = [
+  "Website", // always
+  PAGE_TAG_MAP[data.page?.toLowerCase()] || data.page, // page
+  data.service_required, // service
+];
 
-tagIds.push(await getTagId("Website", cookies));
-tagIds.push(await getTagId("Textiles & Apparel", cookies));
-tagIds.push(await getTagId(data.service_required, cookies));
+const tagIds = [];
+
+for (const tag of rawTags) {
+  if (!tag) continue;
+
+  const cleanTag = tag.trim();
+
+  if (!cleanTag) continue;
+
+  const id = await getTagId(cleanTag, cookies);
+
+  if (id) {
+    tagIds.push(id);
+  } else {
+    console.warn("⚠️ Invalid tag skipped:", cleanTag);
+  }
+}
+
+console.log("🧪 FINAL TAG IDS:", tagIds);
 
 const partnerId = await getOrCreateContact(data, cookies);
 const userId = getSalespersonId(data.service_required);
+
+  if (!partnerId) {
+  console.error("❌ Invalid partnerId");
+}
 
   // 🚀 Create Lead in CRM
   const leadRes = await fetch(`${process.env.ODOO_URL}/web/dataset/call_kw`, {
@@ -271,7 +310,7 @@ Source Page: ${data.page}
   `,
   priority: priority === "high" ? "3" : priority === "medium" ? "2" : "1",
   user_id: userId,
-  tag_ids: [[6, 0, tagIds]],
+  tag_ids: tagIds.length ? [[6, 0, tagIds]] : [],
           },
         ],
         kwargs: {},
