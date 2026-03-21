@@ -14,6 +14,11 @@ const PAGE_TAG_MAP = {
 };
 
 async function odooCall(url, cookies, payload) {
+  // ✅ FORCE kwargs ALWAYS
+  if (!payload.params.kwargs) {
+    payload.params.kwargs = {};
+  }
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -23,7 +28,13 @@ async function odooCall(url, cookies, payload) {
     body: JSON.stringify(payload),
   });
 
-  return res.json();
+  const json = await res.json();
+
+  if (json.error) {
+    console.error("❌ Odoo API Error:", json.error);
+  }
+
+  return json;
 }
 
 // 👇 Tag helper
