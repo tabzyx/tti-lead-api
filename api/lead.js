@@ -218,7 +218,50 @@ const authData = await authRes.json();
     // 🔥 IMPORTANT: extract cookies
 const cookies = authRes.headers.get("set-cookie");
 
-    async function getOrCreateContact(data, cookies) {
+async function getOrCreateCompany(data, cookies) {
+  if (!data.company_name) return null;
+
+  const searchRes = await odooCall(
+    `${process.env.ODOO_URL}/web/dataset/call_kw`,
+    cookies,
+    {
+      jsonrpc: "2.0",
+      params: {
+        model: "res.partner",
+        method: "search_read",
+        args: [[["name", "=", data.company_name], ["company_type", "=", "company"]]],
+        kwargs: { fields: ["id"], limit: 1 },
+      },
+    }
+  );
+
+  if (searchRes.result?.length) {
+    return searchRes.result[0].id;
+  }
+
+  const createRes = await odooCall(
+    `${process.env.ODOO_URL}/web/dataset/call_kw`,
+    cookies,
+    {
+      jsonrpc: "2.0",
+      params: {
+        model: "res.partner",
+        method: "create",
+        args: [
+          {
+            name: data.company_name,
+            company_type: "company",
+          },
+        ],
+        kwargs: {},
+      },
+    }
+  );
+
+  return createRes.result;
+}
+
+async function getOrCreateContact(data, cookies, companyId) {
   const searchRes = await odooCall(
     `${process.env.ODOO_URL}/web/dataset/call_kw`,
     cookies,
@@ -233,31 +276,39 @@ const cookies = authRes.headers.get("set-cookie");
     }
   );
 
-  if (searchRes.result.length) {
+  if (searchRes.result?.length) {
     return searchRes.result[0].id;
   }
+
+  const website = data.email.includes("@")
+    ? `https://${data.email.split("@")[1]}`
+    : "";
 
   const createRes = await odooCall(
     `${process.env.ODOO_URL}/web/dataset/call_kw`,
     cookies,
     {
       jsonrpc: "2.0",
-      id: Date.now(), // or any unique number
       params: {
         model: "res.partner",
         method: "create",
         args: [
-  {
-    name: data.company_name
-      ? `${data.full_name} (${data.company_name})`
-      : data.full_name,
-    email: data.email,
-    phone: data.phone,
-  },
-],
+          {
+            name: data.full_name,
+            email: data.email,
+            phone: data.phone,
+            function: data.job_title || "",
+            website,
+
+            company_type: "person",
+            parent_id: companyId || false, // 🔥 KEY LINK
+          },
+        ],
+        kwargs: {},
       },
     }
   );
+
   console.log("🧪 Contact create response:", createRes);
       if (!createRes?.result) {
   console.error("❌ Contact creation failed:", createRes);
@@ -302,7 +353,8 @@ for (const tag of rawTags) {
 
 console.log("🧪 FINAL TAG IDS:", tagIds);
 
-const partnerId = await getOrCreateContact(data, cookies);
+const companyId = await getOrCreateCompany(data, cookies);
+const partnerId = await getOrCreateContact(data, cookies, companyId);
 const userId = getSalespersonId(data.service_required);
 
   if (!partnerId) {
