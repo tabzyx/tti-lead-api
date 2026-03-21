@@ -329,22 +329,19 @@ const userId = getSalespersonId(data.service_required);
   email_from: data.email,
   phone: data.phone,
 
-  description: [
-  `Service: ${data.service_required}`,
-  `Company: ${data.company_name}`,
-  `Name: ${data.full_name}`,
-  `Email: ${data.email}`,
-  `Phone: ${data.phone}`,
-  ``,
-  `Message:`,
-  data.inquiry,
-  ``,
-  `Source Page: ${
-    PAGE_TAG_MAP[data.page?.toLowerCase()] || data.page
-  }`,
-]
-  .filter(Boolean)
-  .join("\n"),
+  description: `
+<b>Service:</b> ${data.service_required}<br/>
+<b>Company:</b> ${data.company_name}<br/>
+<b>Name:</b> ${data.full_name}<br/>
+<b>Email:</b> ${data.email}<br/>
+<b>Phone:</b> ${data.phone}<br/><br/>
+
+<b>Message:</b><br/>
+${data.inquiry}<br/><br/>
+
+<b>Source Page:</b> ${
+  PAGE_TAG_MAP[data.page?.toLowerCase()] || data.page
+}`,
   priority: priority === "high" ? "3" : priority === "medium" ? "2" : "1",
   user_id: userId,
   tag_ids: tagIds.length ? [[6, 0, tagIds]] : [],
