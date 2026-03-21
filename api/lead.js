@@ -158,7 +158,6 @@ module.exports = async function handler(req, res) {
       full_name: data.full_name || "",
       email: email.toLowerCase(),
       phone: data.phone || "",
-      function: data.job_title || "", // ✅ Job Position
       company_name: data.company_name || "",
       job_title: data.job_title || "",
       country: data.Country || "",
@@ -229,7 +228,7 @@ async function getOrCreateCompany(data, cookies) {
       params: {
         model: "res.partner",
         method: "search_read",
-        args: [[["name", "=", data.company_name], ["company_type", "=", "company"]]],
+        args: [[["name", "=", data.company_name], ["is_company", "=", true]]],
         kwargs: { fields: ["id"], limit: 1 },
       },
     }
@@ -250,7 +249,7 @@ async function getOrCreateCompany(data, cookies) {
         args: [
           {
             name: data.company_name,
-            company_type: "company",
+            is_company: true, // ✅ FIXED
           },
         ],
         kwargs: {},
@@ -258,7 +257,11 @@ async function getOrCreateCompany(data, cookies) {
     }
   );
 
-  return createRes.result;
+  console.log("🧪 Company create response:", createRes);
+      if (!createRes?.result) {
+  console.error("❌ Company creation failed:", createRes);
+  return null;
+}else { return createRes.result;}
 }
 
 async function getOrCreateContact(data, cookies, companyId) {
@@ -294,15 +297,17 @@ async function getOrCreateContact(data, cookies, companyId) {
         method: "create",
         args: [
           {
-            name: data.full_name,
-            email: data.email,
-            phone: data.phone,
-            function: data.job_title || "",
-            website,
+  name: data.full_name,
+  email: data.email,
+  phone: data.phone,
 
-            company_type: "person",
-            parent_id: companyId || false, // 🔥 KEY LINK
-          },
+  function: data.job_title || "", // ✅ Job title now works
+  website: data.email?.includes("@")
+    ? `https://${data.email.split("@")[1]}`
+    : "",
+
+  parent_id: companyId || false, // ✅ link to company
+}
         ],
         kwargs: {},
       },
