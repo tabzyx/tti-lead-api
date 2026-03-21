@@ -245,13 +245,14 @@ const cookies = authRes.headers.get("set-cookie");
         model: "res.partner",
         method: "create",
         args: [
-          {
-            name: data.full_name,
-            email: data.email,
-            phone: data.phone,
-            company_name: data.company_name,
-          },
-        ],
+  {
+    name: data.company_name
+      ? `${data.full_name} (${data.company_name})`
+      : data.full_name,
+    email: data.email,
+    phone: data.phone,
+  },
+],
       },
     }
   );
