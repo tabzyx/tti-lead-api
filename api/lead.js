@@ -158,6 +158,7 @@ module.exports = async function handler(req, res) {
       full_name: data.full_name || "",
       email: email.toLowerCase(),
       phone: data.phone || "",
+      function: data.job_title || "", // ✅ Job Position
       company_name: data.company_name || "",
       job_title: data.job_title || "",
       country: data.Country || "",
