@@ -1,3 +1,61 @@
+async function odooCall(url, cookies, payload) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookies,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return res.json();
+}
+
+// 👇 Tag helper
+async function getTagId(name, cookies) {
+  const searchRes = await odooCall(
+    `${process.env.ODOO_URL}/web/dataset/call_kw`,
+    cookies,
+    {
+      jsonrpc: "2.0",
+      params: {
+        model: "crm.tag",
+        method: "search_read",
+        args: [[["name", "=", name]]],
+        kwargs: { fields: ["id"], limit: 1 },
+      },
+    }
+  );
+
+  if (searchRes.result.length) {
+    return searchRes.result[0].id;
+  }
+
+  const createRes = await odooCall(
+    `${process.env.ODOO_URL}/web/dataset/call_kw`,
+    cookies,
+    {
+      jsonrpc: "2.0",
+      params: {
+        model: "crm.tag",
+        method: "create",
+        args: [{ name }],
+      },
+    }
+  );
+
+  return createRes.result;
+}
+
+// 👇 Salesperson logic
+function getSalespersonId(service) {
+  if (service === "Inspection") return 2;
+  if (service === "Testing") return 3;
+  if (service === "Certification") return 4;
+  return 2;
+}
+
+// 👇 Handler starts AFTER helpers
 module.exports = async function handler(req, res) {
   try {
    if (req.method === "GET") {
@@ -121,6 +179,48 @@ const authData = await authRes.json();
 
     // 🔥 IMPORTANT: extract cookies
 const cookies = authRes.headers.get("set-cookie");
+
+    async function getOrCreateContact(data, cookies) {
+  const searchRes = await odooCall(
+    `${process.env.ODOO_URL}/web/dataset/call_kw`,
+    cookies,
+    {
+      jsonrpc: "2.0",
+      params: {
+        model: "res.partner",
+        method: "search_read",
+        args: [[["email", "=", data.email]]],
+        kwargs: { fields: ["id"], limit: 1 },
+      },
+    }
+  );
+
+  if (searchRes.result.length) {
+    return searchRes.result[0].id;
+  }
+
+  const createRes = await odooCall(
+    `${process.env.ODOO_URL}/web/dataset/call_kw`,
+    cookies,
+    {
+      jsonrpc: "2.0",
+      params: {
+        model: "res.partner",
+        method: "create",
+        args: [
+          {
+            name: data.full_name,
+            email: data.email,
+            phone: data.phone,
+            company_name: data.company_name,
+          },
+        ],
+      },
+    }
+  );
+
+  return createRes.result;
+}
     
 const uid = authData?.result?.uid;
 
@@ -128,6 +228,15 @@ if (!uid) {
   console.error("❌ Odoo auth failed", authData);
 } else {
   console.log("✅ Odoo authenticated");
+
+  const tagIds = [];
+
+tagIds.push(await getTagId("Website", cookies));
+tagIds.push(await getTagId("Textiles & Apparel", cookies));
+tagIds.push(await getTagId(data.service_required, cookies));
+
+const partnerId = await getOrCreateContact(data, cookies);
+const userId = getSalespersonId(data.service_required);
 
   // 🚀 Create Lead in CRM
   const leadRes = await fetch(`${process.env.ODOO_URL}/web/dataset/call_kw`, {
@@ -144,11 +253,26 @@ if (!uid) {
         method: "create",
         args: [
           {
-            name: `${data.service_required} Inquiry`,
-            contact_name: data.full_name,
-            email_from: data.email,
-            phone: data.phone,
-            description: data.inquiry,
+            {
+  name: `${data.service_required} Inquiry – ${data.full_name} (${data.company_name})`,
+  contact_name: data.full_name,
+  partner_id: partnerId,
+  email_from: data.email,
+  phone: data.phone,
+
+  description: `
+Service: ${data.service_required}
+Company: ${data.company_name}
+Name: ${data.full_name}
+
+Message:
+${data.inquiry}
+
+Source Page: ${data.page}
+  `,
+  priority: priority === "high" ? "3" : priority === "medium" ? "2" : "1",
+  user_id: userId,
+  tag_ids: [[6, 0, tagIds]],
           },
         ],
         kwargs: {},
