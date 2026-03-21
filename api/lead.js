@@ -28,38 +28,49 @@ async function odooCall(url, cookies, payload) {
 
 // 👇 Tag helper
 async function getTagId(name, cookies) {
-  const searchRes = await odooCall(
-    `${process.env.ODOO_URL}/web/dataset/call_kw`,
-    cookies,
-    {
-      jsonrpc: "2.0",
-      params: {
-        model: "crm.tag",
-        method: "search_read",
-        args: [[["name", "=", name]]],
-        kwargs: { fields: ["id"], limit: 1 },
-      },
-    }
-  );
+  try {
+    const searchRes = await odooCall(
+      `${process.env.ODOO_URL}/web/dataset/call_kw`,
+      cookies,
+      {
+        jsonrpc: "2.0",
+        params: {
+          model: "crm.tag",
+          method: "search_read",
+          args: [[["name", "=", name]]],
+          kwargs: { fields: ["id"], limit: 1 },
+        },
+      }
+    );
 
-  if (searchRes.result.length) {
-    return searchRes.result[0].id;
+    if (searchRes?.result?.length) {
+      return searchRes.result[0].id;
+    }
+
+    // 🔥 CREATE TAG
+    const createRes = await odooCall(
+      `${process.env.ODOO_URL}/web/dataset/call_kw`,
+      cookies,
+      {
+        jsonrpc: "2.0",
+        params: {
+          model: "crm.tag",
+          method: "create",
+          args: [{ name: name.trim() }],
+        },
+      }
+    );
+
+    if (createRes?.result) {
+      return createRes.result;
+    }
+
+    console.error("❌ Tag create failed:", createRes);
+    return null;
+  } catch (err) {
+    console.error("❌ Tag error:", name, err);
+    return null;
   }
-
-  const createRes = await odooCall(
-    `${process.env.ODOO_URL}/web/dataset/call_kw`,
-    cookies,
-    {
-      jsonrpc: "2.0",
-      params: {
-        model: "crm.tag",
-        method: "create",
-        args: [{ name }],
-      },
-    }
-  );
-
-  return createRes.result;
 }
 
 // 👇 Salesperson logic
@@ -233,8 +244,11 @@ const cookies = authRes.headers.get("set-cookie");
       },
     }
   );
-
-  return createRes.result;
+  console.log("🧪 Contact create response:", createRes);
+      if (!createRes?.result) {
+  console.error("❌ Contact creation failed:", createRes);
+  return null;
+}else { return createRes.result;}
 }
     
 const uid = authData?.result?.uid;
@@ -244,10 +258,14 @@ if (!uid) {
 } else {
   console.log("✅ Odoo authenticated");
 
+  const pageTag =
+  PAGE_TAG_MAP[data.page?.toLowerCase()] ||
+  data.page?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  
 const rawTags = [
-  "Website", // always
-  PAGE_TAG_MAP[data.page?.toLowerCase()] || data.page, // page
-  data.service_required, // service
+  "Website",
+  pageTag,
+  data.service_required,
 ];
 
 const tagIds = [];
