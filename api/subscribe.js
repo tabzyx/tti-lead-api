@@ -56,7 +56,8 @@ export default async function handler(req, res) {
         attributes: {
           FIRSTNAME: firstName,
           LASTNAME: lastName,
-          JOB_TITLE: jobTitle || ""
+          JOB_TITLE: jobTitle || "",
+          LINKEDIN: linkedin
         },
         listIds: listIds,
         updateEnabled: true
