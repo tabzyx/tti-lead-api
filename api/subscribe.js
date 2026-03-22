@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Method not allowed" })
   }
 
-  const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+  /*const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
   method: "POST",
   headers: {
     "Content-Type": "application/json"
@@ -28,7 +28,7 @@ const verifyData = await verifyRes.json()
 
 if (!verifyData.success) {
   return res.status(400).json({ error: "Captcha failed" })
-}
+}*/
 
   const { fullName, email, industries, jobTitle, linkedin } = req.body
 
