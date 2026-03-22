@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         updateEnabled: true
       })
     });
-
+    console.log("API KEY:", process.env.BREVO_API_KEY)
     const data = await response.json();
 
     if (!response.ok) {
