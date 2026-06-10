@@ -2,16 +2,167 @@ const PAGE_TAG_MAP = {
   "textiles-apparel": "Textiles & Apparel",
   "leather-footwear": "Leather & Footwear",
   "petroleum": "Petroleum",
-  "food-agri": "Food & Agri",
+  "food-agri": "Food & Agriculture",
   "ppe": "PPE",
-  "chemicals": "Chemicals",
-  "pharma": "Pharma",
+  "pharma": "Pharmaceutical",
   "testing": "Testing",
   "inspection": "Inspection",
   "certification": "Certification",
+  "compliance": "Compliance",
   "sustainability": "Sustainability",
   "contact": "Contact",
 };
+
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.co.uk",
+  "hotmail.com",
+  "outlook.com",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "zoho.com",
+  "mail.com",
+  "gmx.com",
+  "yandex.com",
+]);
+
+const BROCHURE_DOWNLOAD_LINK_MAP = {
+  "testing": "https://drive.google.com/file/d/1o5rVhjfGDxVy4M82Fu-8sAsJ9hQlgeIh/view",
+  "inspection": "",
+  "certification": "",
+  "compliance": "",
+  "sustainability": "https://drive.google.com/file/d/17HReJQ1dsq0_xeikws-BepblJ1LZ4alz/view",
+  "zdhc": "https://drive.google.com/file/d/1HHD-CDGf7YOvPl1yVXQ5Axdpq2N5F8Ok/view",
+  "pfas": "https://drive.google.com/file/d/10fo5LNIp1_GOlX-Tnu_Cfi9frwT6CqKc/view",
+};
+
+function getBrochureDownloadLink(brochureType) {
+  const key = String(brochureType || "").toLowerCase().trim();
+  return BROCHURE_DOWNLOAD_LINK_MAP[key] || "";
+}
+
+function getEmailType(email) {
+  const domain =
+    String(email || "")
+      .toLowerCase()
+      .trim()
+      .split("@")[1] || "";
+
+  return PERSONAL_EMAIL_DOMAINS.has(domain) ? "personal" : "business";
+}
+
+function normalizeLeadData(data, referer) {
+  const brochureType = String(data.brochure_type || "").trim();
+  const requestType = String(data.request_type || "").trim();
+  const serviceRequired = String(data.service_required || "").trim();
+  const page = String(data.page || referer || "").trim();
+
+  let inquiry = String(data.inquiry || "").trim();
+
+  if (!inquiry && brochureType) {
+    inquiry = `Brochure download request: ${brochureType}`;
+  }
+
+  let formType = "lead";
+
+  if (brochureType) {
+    formType = "brochure_download";
+  } else if (page.toLowerCase() === "contact") {
+    formType = "contact";
+  }
+
+  return {
+    full_name: String(data.full_name || "").trim(),
+    email: String(data.email || "").toLowerCase().trim(),
+    phone: String(data.phone || "").trim(),
+    company_name: String(data.company_name || "").trim(),
+    job_title: String(data.job_title || "").trim(),
+    country: String(data.Country || "").trim(),
+    service_required: serviceRequired,
+    inquiry,
+
+    source_page: page,
+
+    form_type: formType,
+    brochure_type: brochureType,
+    inquiry_type: requestType,
+  };
+}
+
+const BREVO_BROCHURE_TEMPLATE_ID = 1;
+const BREVO_INQUIRY_AUTORESPONDER_TEMPLATE_ID = 3;
+
+function getAutoResponseTemplateId(lead, emailType) {
+  if (lead.form_type === "brochure_download" && emailType === "business") {
+    return BREVO_BROCHURE_TEMPLATE_ID;
+  }
+
+  return BREVO_INQUIRY_AUTORESPONDER_TEMPLATE_ID;
+}
+
+async function sendAutoResponseEmail(lead, emailType) {
+  const templateId = getAutoResponseTemplateId(lead, emailType);
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": process.env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      templateId,
+      to: [
+        {
+          email: lead.email,
+          name: lead.full_name || lead.email,
+        },
+      ],
+      params: {
+        FULL_NAME: lead.full_name,
+        EMAIL: lead.email,
+        PHONE: lead.phone,
+        COMPANY_NAME: lead.company_name,
+        JOB_TITLE: lead.job_title,
+        COUNTRY: lead.country,
+        SERVICE_REQUIRED: lead.service_required,
+        INQUIRY: lead.inquiry,
+        REQUEST_TYPE: lead.inquiry_type,
+        BROCHURE_TYPE: lead.brochure_type,
+        SOURCE_PAGE: lead.source_page,
+        DOWNLOAD_LINK: getBrochureDownloadLink(lead.brochure_type),
+      },
+    }),
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    console.error("Brevo autoresponder error:", responseText);
+
+    return {
+      sent: false,
+      reason: "brevo_error",
+      details: responseText,
+    };
+  }
+
+  console.log("Brevo autoresponder sent:", {
+    email: lead.email,
+    form_type: lead.form_type,
+    brochure_type: lead.brochure_type,
+    templateId,
+  });
+
+  return { sent: true, templateId };
+}
 
 async function odooCall(url, cookies, payload) {
   // ✅ FORCE kwargs ALWAYS
@@ -111,9 +262,7 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ message: "Only POST allowed" });
     }
 
-    const data = req.body || {};
-
-    console.log(data);
+    const rawData = req.body || {};
 
     const userAgent = req.headers?.["user-agent"] || "unknown";
     const referer = req.headers?.["referer"] || "";
@@ -135,12 +284,10 @@ module.exports = async function handler(req, res) {
       }
     } catch (e) {}
 
-    // Email type
-    const email = data.email || "";
-    const email_type =
-      email.includes("gmail") || email.includes("yahoo")
-        ? "personal"
-        : "business";
+    const data = normalizeLeadData(rawData, referer);
+    const email_type = getEmailType(data.email);
+
+    console.log(data);
 
     // Scoring
     let score = 0;
@@ -156,11 +303,11 @@ module.exports = async function handler(req, res) {
 
     const payload = {
       full_name: data.full_name || "",
-      email: email.toLowerCase(),
+      email: data.email || "",
       phone: data.phone || "",
       company_name: data.company_name || "",
       job_title: data.job_title || "",
-      country: data.Country || "",
+      country: data.country || "",
       service_required: data.service_required || "",
       inquiry: data.inquiry || "",
 
@@ -168,11 +315,14 @@ module.exports = async function handler(req, res) {
       lead_score: score,
       priority,
 
-      source_page: data.page || referer,
+      source_page: data.source_page || "",
       ...utm,
 
       ip_address: ip,
       user_agent: userAgent,
+      form_type: data.form_type || "",
+      brochure_type: data.brochure_type || "",
+      inquiry_type: data.inquiry_type || "",
       created_at: new Date().toISOString(),
     };
 
@@ -195,8 +345,22 @@ const text = await response.text();
 
 if (!response.ok) {
   console.error("❌ Supabase error:", text);
-} else {
-  console.log("✅ Insert successful");
+  return res.status(400).json({
+    success: false,
+    error: "Lead could not be saved",
+  });
+}
+
+console.log("✅ Insert successful");
+const autoResponse = await sendAutoResponseEmail(data, email_type);
+if (data.form_type === "brochure_download") {
+  return res.status(200).json({
+    success: true,
+    form_type: data.form_type,
+    email_type,
+    autoresponder: autoResponse,
+    odoo_created: false,
+  });
 }
     // 🔐 Authenticate with Odoo
 const authRes = await fetch(`${process.env.ODOO_URL}/web/session/authenticate`, {
@@ -329,13 +493,14 @@ if (!uid) {
   console.log("✅ Odoo authenticated");
 
   const pageTag =
-  PAGE_TAG_MAP[data.page?.toLowerCase()] ||
-  data.page?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  PAGE_TAG_MAP[data.source_page?.toLowerCase()] || data.source_page?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   
 const rawTags = [
   "Website",
   pageTag,
   data.service_required,
+  data.inquiry_type,
+  data.form_type === "contact" ? "Contact Form" : "Lead Form",
 ];
 
 const tagIds = [];
@@ -398,7 +563,7 @@ const userId = getSalespersonId(data.service_required);
 ${data.inquiry}<br/><br/>
 
 <b>Source Page:</b> ${
-  PAGE_TAG_MAP[data.page?.toLowerCase()] || data.page
+  PAGE_TAG_MAP[data.source_page?.toLowerCase()] || data.source_page
 }`,
   priority: priority === "high" ? "3" : priority === "medium" ? "2" : "1",
   user_id: userId,
