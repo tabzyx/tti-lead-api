@@ -352,7 +352,18 @@ if (!response.ok) {
 }
 
 console.log("✅ Insert successful");
-const autoResponse = await sendAutoResponseEmail(data, email_type);
+
+let autoResponse;
+try {
+  autoResponse = await sendAutoResponseEmail(data, email_type);
+} catch (brevoError) {
+  console.error("❌ Brevo autoresponder failed:", brevoError);
+  autoResponse = {
+    sent: false,
+    reason: "brevo_exception",
+  };
+}
+
 if (data.form_type === "brochure_download") {
   return res.status(200).json({
     success: true,
@@ -362,6 +373,8 @@ if (data.form_type === "brochure_download") {
     odoo_created: false,
   });
 }
+
+try {
     // 🔐 Authenticate with Odoo
 const authRes = await fetch(`${process.env.ODOO_URL}/web/session/authenticate`, {
   method: "POST",
@@ -376,7 +389,15 @@ const authRes = await fetch(`${process.env.ODOO_URL}/web/session/authenticate`, 
   }),
 });
 
-const authData = await authRes.json();
+const authText = await authRes.text();
+let authData;
+
+try {
+  authData = JSON.parse(authText);
+} catch (error) {
+  console.error("❌ Odoo auth returned non-JSON:", authText);
+  throw error;
+}
 
     // 🔥 IMPORTANT: extract cookies
 const cookies = authRes.headers.get("set-cookie");
@@ -575,11 +596,30 @@ ${data.inquiry}<br/><br/>
     }),
   });
 
-  const leadData = await leadRes.json();
+  const leadText = await leadRes.text();
+  let leadData;
+
+  try {
+    leadData = JSON.parse(leadText);
+  } catch (error) {
+    console.error("❌ Odoo lead create returned non-JSON:", leadText);
+    throw error;
+  }
+
   console.log("📈 Odoo Lead Created:", leadData);
 }
 
  return res.status(200).json({ success: true });
+} catch (odooError) {
+  console.error("❌ Odoo flow failed:", odooError);
+
+  return res.status(200).json({
+    success: true,
+    autoresponder: autoResponse,
+    odoo_created: false,
+    warning: "Lead saved, but Odoo sync failed",
+  });
+}
   } catch (error) {
     console.error("ERROR:", error);
     return res.status(500).json({ error: "Internal Server Error" });
