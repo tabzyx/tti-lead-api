@@ -108,8 +108,18 @@ function getAutoResponseTemplateId(lead, emailType) {
   return BREVO_INQUIRY_AUTORESPONDER_TEMPLATE_ID;
 }
 
+function splitFullName(fullName) {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 async function sendAutoResponseEmail(lead, emailType) {
   const templateId = getAutoResponseTemplateId(lead, emailType);
+  const { firstName, lastName } = splitFullName(lead.full_name);
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -126,6 +136,8 @@ async function sendAutoResponseEmail(lead, emailType) {
         },
       ],
       params: {
+        FIRST_NAME: firstName,
+        LAST_NAME: lastName,
         FULL_NAME: lead.full_name,
         EMAIL: lead.email,
         PHONE: lead.phone,
